@@ -3,13 +3,15 @@
 from xml.etree.ElementTree import parse, ParseError
 from pathlib import Path
 from argparse import ArgumentParser
+from tqdm import tqdm
 
 CROP_TYPES = {"Adventice", "PlanteInteret"}
 DOC_TAG = "xml"
 
 
 def check(xml_dir, mask_dir, img_dir, mask_ext):
-	for xml_file in xml_dir.glob("*.xml"):	
+	xml_files = list(xml_dir.glob("*.xml"))
+	for xml_file in tqdm(xml_files, desc="Validating format", unit="file"):	
 		try:
 			root = parse(xml_file).getroot().find("DL_DOCUMENT")
 
@@ -35,7 +37,6 @@ def check(xml_dir, mask_dir, img_dir, mask_ext):
 				img_w, img_h = int(root.attrib["width"]), int(root.attrib["height"])
 				if img_w <= 0 or img_h <= 0:
 					print(f"Image size should be greater than 0 for XML file '{xml_file.name}'")
-
 			except ValueError as error:
 				print(f"Invalid image width or height for XML file '{xml_file.name}'")
 
@@ -84,5 +85,3 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	check(args.xml_dir, args.mask_dir, args.img_dir, args.mask_ext)
-
-	print("Validation done")

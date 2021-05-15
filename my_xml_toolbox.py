@@ -1,14 +1,13 @@
 # Created by Louis LAC 2019
 
-from lxml.etree import Element, SubElement, tostring, parse
-import datetime
-import os
+from lxml.etree import Element, SubElement, tostring
+from datetime import date
 from pathlib import Path
 
 
 class XMLTree:
 
-    def __init__(self, image_path, width, height, user_name="Bipbip", date=datetime.date.today()):
+    def __init__(self, image_path, width, height, user_name="bipbip", date=date.today()):
         self.plant_count = 0
         self.image_path = Path(image_path)
         self.tree = Element("GEDI")
