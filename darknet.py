@@ -387,8 +387,7 @@ if __name__ == "__main__":
         return cfg.resolve(), meta.resolve(), weights.resolve()
 
     yolo_path = Path("results/yolov4-tiny_12/")  # BDD 9.0 norm stems 5.0
-    cfg, meta, weights = get_cfg_meta_weights(yolo_path)
-    net = YoloDetector(cfg, meta, weights)
+    net = YoloDetector.from_dir(yolo_path)
     
     image = str(next(Path("data/val/").glob("*.jpg")))
     img = np.array(Image.open(image))
