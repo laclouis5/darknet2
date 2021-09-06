@@ -206,8 +206,8 @@ class Evaluator:
             recall, precision = metric["recall"], metric["precision"]
             npos, ndet = metric["total positives"], metric["total detections"]
             accuracies = metric["accuracies"]
-            precision = tp / npos if npos != 0 else 1 if ndet == 0 else 0
-            recall = tp / ndet if ndet != 0 else 1 if npos == 0 else 0
+            precision = tp / ndet if ndet != 0 else 1 if npos == 0 else 0
+            recall = tp / npos if npos != 0 else 1 if ndet == 0 else 0
             f1 = 2 * recall * precision / (recall + precision) if (recall + precision) != 0 else 0
             accuracy = accuracies.mean()
             std_err = np.std(accuracies) / np.sqrt(len(accuracies))

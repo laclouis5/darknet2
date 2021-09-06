@@ -1,4 +1,4 @@
-from darknet import YoloDetector
+import shutil
 from pathlib import Path
 from BoxLibrary import *
 from my_library import *
@@ -6,9 +6,10 @@ from my_xml_toolbox import *
 from argparse import ArgumentParser
 from PIL import Image
 import numpy as np
-from tqdm.contrib import tenumerate, tzip
+from tqdm.contrib import tzip
 from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
+import shutil
 
 
 def parse_args():
@@ -17,7 +18,7 @@ def parse_args():
     parser.add_argument("image_dir", type=str,
         help="Directory where sequential images, ground truths, optical_flow and image_list are stored.")
     parser.add_argument("label", type=str,
-        help="The label to track.")
+        help="The label to track. Either 'mais' or 'haricot'.")
 
     parser.add_argument("--conf_threshold", "-t", type=float, default=0.25,
         help="Network confidence threshold")
@@ -49,17 +50,19 @@ def parse_args():
     args.image_list_path = args.image_dir / "image_list.txt"
     args.dets_dir = args.image_dir / "predictions"
 
-    valid_labels = {"maize", "bean", "leek", "stem_maize", "stem_bean", "stem_leek"}
+    # valid_labels = {"maize", "bean", "leek", "stem_maize", "stem_bean", "stem_leek"}
 
-    assert args.label in valid_labels
+    assert args.label in {"mais", "haricot"}
     assert args.optflow_path.is_file() or args.compute_flow
     assert args.dets_dir.is_dir() or args.net_dir is not None
 
     if args.dist_threshold is None:
-        args.dist_threshold = (12 if "maize" in args.label else 6) / 100
+        args.dist_threshold = (12 if args.label == "mais" else 6) / 100
 
     if args.min_dets is None:
-        args.min_dets = 10 if "maize" in args.label else 13
+        args.min_dets = 10 if args.label == "mais" else 13
+
+    args.tracking_label = "stem_maize" if args.label == "mais" else "stem_bean"
 
     assert args.dets_fmt in {"json", "yolo"}
 
@@ -106,26 +109,24 @@ def track(boxes, image_list, flows, conf_thresh, min_points, dist_thresh, crop_p
     return dets
 
 
-def operose(boxes, save_dir):
-    global inner
-
-    def inner(element):
-        (image, image_boxes) = element
+def inner(element):
+        ((image, image_boxes), save_dir, label_name) = element
 
         image_name = Path(image).name
+        new_image_name = f"bipbip_{label_name}{image_name[3:]}"
+        shutil.copy(image, save_dir / new_image_name)
         (img_h, img_w) = cv.imread(image).shape[:2]
         radius = int(5/100 * min(img_w, img_h) / 2)
 
-        xml_tree = XMLTree(image_name, width=img_w, height=img_h)
+        xml_tree = XMLTree(new_image_name, width=img_w, height=img_h)
 
         for box in image_boxes:
-            label = box.getClassId()
-            xml_tree.add_mask(label)
+            xml_tree.add_mask(label_name)
 
             (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
             rect = [int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius]
 
-            out_name = f"{Path(image).stem}_{xml_tree.plant_count-1}.png"
+            out_name = f"{Path(new_image_name).stem}_{xml_tree.plant_count-1}.png"
 
             stem_mask = Image.new(mode="1", size=(img_w, img_h))
             stem_mask.paste(Image.new(mode="1", size=(radius*2, radius*2), color=1), rect)
@@ -133,9 +134,16 @@ def operose(boxes, save_dir):
 
             xml_tree.save(save_dir)
 
+
+def operose(boxes, save_dir, label_name):
     create_dir(save_dir)
     boxes_by_name = boxes.getBoxesBy(lambda box: box.getImageName())
-    process_map(inner, boxes_by_name.items(), max_workers=8, desc="Operose", unit="image")
+    elements = list(zip(
+        boxes_by_name.items(), 
+        [save_dir]*len(boxes_by_name), 
+        [label_name]*len(boxes_by_name)
+    ))
+    process_map(inner, elements, max_workers=4, desc="Operose", unit="image")
 
 
 if __name__ == "__main__":
@@ -147,13 +155,14 @@ if __name__ == "__main__":
 
     if args.net_dir is None:
         if args.dets_fmt == "yolo":
-            dets = Parser.parse_yolo_det_folder(args.dets_dir, args.image_dir, classes=[args.label])
+            dets = Parser.parse_yolo_det_folder(args.dets_dir, args.image_dir, classes=[args.tracking_label])
         else:  # json
-            dets = Parser.parse_json_folder(args.dets_dir, classes=[args.label])
+            dets = Parser.parse_json_folder(args.dets_dir, classes=[args.tracking_label])
 
         if len(dets) == 0:
             print("WARNING: No box was parsed.")
     else:
+        from darknet import YoloDetector
         yolo = YoloDetector.from_dir(args.net_dir)
         dets = BoundingBoxes()
 
@@ -161,7 +170,7 @@ if __name__ == "__main__":
             img = np.array(Image.open(image))
             img_h, img_w = img.shape[:2]
             predictions = yolo.predict(img, args.conf_threshold)
-            dets += Parser.parse_yolo_darknet_detections(predictions, str(image.expanduser().resolve()), (img_w, img_h), classes=[args.label])
+            dets += Parser.parse_yolo_darknet_detections(predictions, str(image.expanduser().resolve()), (img_w, img_h), classes=[args.tracking_label])
         
         if args.save_dets:
             dets.save(save_dir=args.dets_dir)
@@ -177,4 +186,4 @@ if __name__ == "__main__":
 
         dets = track(dets, args.image_list_path, flows, args.conf_threshold, args.min_dets, args.dist_threshold)
     
-    operose(dets, args.image_dir / "operose")
+    operose(dets, args.image_dir / "operose", args.label)
