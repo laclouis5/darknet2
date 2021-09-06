@@ -153,38 +153,38 @@ def remove_negatives(detections, class_names, num):
     return output
 
 
-def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-    """
-        Returns a list with highest confidence class and their bbox
-    """
-    pnum = pointer(c_int(0))
-    predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
-                                   thresh, hier_thresh, None, 0, pnum, 0)
-    num = pnum[0]
-    if nms:
-        do_nms_sort(detections, num, len(class_names), nms)
-    predictions = remove_negatives(detections, class_names, num)
-    predictions = decode_detection(predictions)
-    free_detections(detections, num)
-    return sorted(predictions, key=lambda x: x[1])
+# def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
+#     """
+#         Returns a list with highest confidence class and their bbox
+#     """
+#     pnum = pointer(c_int(0))
+#     predict_image(network, image)
+#     detections = get_network_boxes(network, image.w, image.h,
+#                                    thresh, hier_thresh, None, 0, pnum, 0)
+#     num = pnum[0]
+#     if nms:
+#         do_nms_sort(detections, num, len(class_names), nms)
+#     predictions = remove_negatives(detections, class_names, num)
+#     predictions = decode_detection(predictions)
+#     free_detections(detections, num)
+#     return sorted(predictions, key=lambda x: x[1])
 
 
-def image_detection(image_path, network, class_names, thresh):
-    width = network_width(network)
-    height = network_height(network)
-    darknet_image = make_image(width, height, 3)
+# def image_detection(image_path, network, class_names, thresh):
+#     width = network_width(network)
+#     height = network_height(network)
+#     darknet_image = make_image(width, height, 3)
 
-    image = cv2.imread(image_path)
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image_resized = cv2.resize(image_rgb, (width, height),
-                               interpolation=cv2.INTER_LINEAR)
+#     image = cv2.imread(image_path)
+#     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#     image_resized = cv2.resize(image_rgb, (width, height),
+#                                interpolation=cv2.INTER_LINEAR)
 
-    copy_image_from_bytes(darknet_image, image_resized.tobytes())
-    detections = detect_image(network, class_names, darknet_image, thresh=thresh)
-    free_image(darknet_image)
+#     copy_image_from_bytes(darknet_image, image_resized.tobytes())
+#     detections = detect_image(network, class_names, darknet_image, thresh=thresh)
+#     free_image(darknet_image)
 
-    return detections
+#     return detections
 
 
 #  lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
