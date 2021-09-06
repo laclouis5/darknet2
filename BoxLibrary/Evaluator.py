@@ -8,14 +8,25 @@ from .BoundingBox import BoundingBox
 from .BoundingBoxes import BoundingBoxes
 from .utils import *
 
+import rich
+from rich import print as rprint
+from rich.table import Table, Column
+
+from collections import defaultdict
+
 
 class Evaluator:
     cocoThresholds = [thresh / 100 for thresh in range(50, 100, 5)]
 
-    def GetPascalVOCMetrics(self, boxes, thresh=0.5, method=EvaluationMethod.IoU):
+    def GetPascalVOCMetrics(self, 
+        boxes, 
+        thresh=0.5, 
+        method=EvaluationMethod.IoU, 
+        labels=None
+    ):
         ret = {}
         boxesByLabels = dictGrouping(boxes, key=lambda box: box.getClassId())
-        labels = sorted(boxesByLabels.keys())
+        labels = sorted(labels or boxesByLabels.keys())
 
         for label in labels:
             boxesByDetectionMode = dictGrouping(
@@ -79,7 +90,7 @@ class Evaluator:
             total_tp = sum(TP)
             total_fp = len(TP) - total_tp
 
-            [ap, mpre, mrec, ii] = Evaluator.CalculateAveragePrecision(rec, prec)
+            ap, *_ = Evaluator.CalculateAveragePrecision(rec, prec)
 
             ret[label] = {
                 "precision": prec,
@@ -119,13 +130,43 @@ class Evaluator:
         print("mAP@.75: {:.2%}".format(APs[5]))
         print("coco AP: {:.2%}".format(cocoAP))
 
+    def printCOCOAPByClass(self, boxes, labels=None):
+        results = [self.GetPascalVOCMetrics(boxes, t, labels=labels)
+            for t in self.cocoThresholds]
+
+        aps = defaultdict(list)
+        for res in results:
+            for label, res_label in res.items():
+                aps[label].append(res_label["AP"])
+        
+        coco_aps = {l: sum(r) / len(r) if r else 0.0  for l, r in aps.items()}
+        aps_50 = {l: a[0] for l, a in aps.items()}
+        aps_75 = {l: a[5] for l, a in aps.items()}
+        
+        coco_ap = sum(coco_aps.values()) / len(coco_aps)
+        ap_50 = sum(aps_50.values()) / len(aps_50)
+        ap_75 = sum(aps_75.values()) / len(aps_75)
+
+        table = Table(show_footer=True)
+        table.add_column("Label", "Total")
+        table.add_column("COCO AP", f"{coco_ap:.2%}", justify="right")
+        table.add_column("AP 50", f"{ap_50:.2%}", justify="right")
+        table.add_column("AP 75", f"{ap_75:.2%}", justify="right")
+
+        for (label, ap), ap50, ap75 in zip(
+            coco_aps.items(), aps_50.values(), aps_75.values()
+        ):
+            table.add_row(label, f"{ap:.2%}", f"{ap50:.2%}", f"{ap75:.2%}")
+
+        rprint(table)
+
     def printAPsByClass(self, boxes, thresh=0.5, method=EvaluationMethod.IoU):
         metrics = self.GetPascalVOCMetrics(boxes, thresh, method)
         tot_tp, tot_fp, tot_npos, accuracy = 0, 0, 0, 0
         accuracies = []
         print("AP@{} by class:".format(thresh))
 
-        for (label, metric) in metrics.items():
+        for label, metric in metrics.items():
             AP = metric["AP"]
             totalPositive = metric["total positives"]
             totalDetections = metric["total detections"]

@@ -102,6 +102,20 @@ def load_network(config_file, data_file, weights, batch_size=1):
     return network, class_names, colors
 
 
+def load_network_2(config_file, name_file, weights, batch_size=1):
+    network = load_net_custom(
+        config_file.encode("ascii"),
+        weights.encode("ascii"), 0, batch_size)
+
+    with open(name_file) as f:
+        data = f.readlines()
+        class_names = [d.strip() for d in data]
+
+    colors = class_colors(class_names)
+
+    return network, class_names, colors
+
+
 def print_detections(detections, coordinates=False):
     print("\nObjects:")
     for label, confidence, bbox in detections:
@@ -319,8 +333,9 @@ network_predict_batch.restype = POINTER(DETNUMPAIR)
 
 class YoloDetector:
 
-    def __init__(self, cfg, meta, weights):
-        self.network, self.class_names, _ = load_network(str(cfg), str(meta), str(weights))
+    def __init__(self, cfg, names, weights):
+        self.network, self.class_names, _ = load_network_2(
+            str(cfg), str(names), str(weights))
         self.width = network_width(self.network)
         self.height = network_height(self.network)
 
@@ -361,35 +376,26 @@ class YoloDetector:
         return predictions
 
     @staticmethod
-    def get_cfg_meta_weights(model_dir):
+    def get_cfg_names_weights(model_dir):
         model_dir = Path(model_dir).expanduser().resolve()
         cfg = next(model_dir.glob("*.cfg"))
         weights = next(model_dir.glob("*.weights"))
-        meta = next(model_dir.glob("*.data"))
+        names = next(model_dir.glob("*.names"))
 
-        return cfg, meta, weights
+        return cfg, names, weights
 
     @staticmethod
     def from_dir(model_dir):
-        cfg, meta, weights = YoloDetector.get_cfg_meta_weights(model_dir)
-        return YoloDetector(cfg, meta, weights)
+        cfg, names, weights = YoloDetector.get_cfg_names_weights(model_dir)
+        return YoloDetector(cfg, names, weights)
 
 
 if __name__ == "__main__":
     from PIL import Image
     import numpy as np
 
-    def get_cfg_meta_weights(model_dir):
-        model_dir = Path(model_dir)
-        cfg = next(model_dir.glob("*.cfg"))
-        weights = next(model_dir.glob("*.weights"))
-        meta = next(model_dir.glob("*.data"))
-        return cfg.resolve(), meta.resolve(), weights.resolve()
-
     yolo_path = Path("results/yolov4-tiny_12/")  # BDD 9.0 norm stems 5.0
-    cfg, meta, weights = get_cfg_meta_weights(yolo_path)
-    net = YoloDetector(cfg, meta, weights)
-    
+    net = YoloDetector.from_dir(yolo_path)
     image = str(next(Path("data/val/").glob("*.jpg")))
     img = np.array(Image.open(image))
 

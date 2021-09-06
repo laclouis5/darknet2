@@ -66,6 +66,4 @@ save/
 backup/
 __pycache__
 env/
-build/
 data/
-models/

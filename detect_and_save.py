@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument("save_dir", type=str,
         help="Directory where to store detections (darknet txt format).")
     
-    parser.add_argument("--confidence_threshold", "-t", type=float, default=5/1000,
+    parser.add_argument("--confidence_threshold", "-t", type=float, default=0.005,
         help="Network confidence threshold.")
     parser.add_argument("--save_confidence", "-c", type=bool, default=True, 
         help="Wether or not to save the bounding box confidence in the annotation file.")

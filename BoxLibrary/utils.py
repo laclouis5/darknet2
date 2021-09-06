@@ -2,8 +2,6 @@ from enum import Enum
 import os
 import PIL
 from collections import defaultdict
-from pathlib import Path
-
 
 
 class MethodAveragePrecision(Enum):

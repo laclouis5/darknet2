@@ -1481,10 +1481,10 @@ if __name__ == "__main__":
     # model_path = "results/yolov4-tiny_stem_classif_2"
 
     # model_path = "results/yolov4_7/"  # BDD 8.2 norm stems
-    # model_path = "results/yolov4-tiny_10/"  # BDD 8.2 norm stems  <-- Current best
+    # model_path = "results/yolov4-tiny_10/"  # BDD 8.2 norm stems
     # model_path = "results/yolov3-tiny_3l_15/"  # BDD 8.2 norm stems
-    # model_path = "results/yolov4-tiny_11/"  # BDD 9.0 norm stems
-    model_path = "results/yolov4-tiny_12/"  # BDD 9.0 norm stems 5.0
+    model_path = "results/yolov4-tiny_11/"  # BDD 9.0 norm stems
+    # model_path = "results/yolov4-tiny_12/"  # BDD 9.0 norm stems 5.0
     # model_path = "results/yolov4-tiny_13/"  # BDD 9.0 norm stems 2.5
 
     # model_path = "results/yolov4-tiny_stem/"

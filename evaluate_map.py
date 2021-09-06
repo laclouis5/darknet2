@@ -23,10 +23,13 @@ def parse_args():
     parser.add_argument("--gts_format", "-g", type=str, default="yolo",
         help="the file format of stored ground truth annotations.")
 
-    parser.add_argument("--conf_threshold", "-t", type=float, default=0.25,
+    parser.add_argument("--conf_threshold", "-t", type=float, default=0.005,
         help="Confidence threshold for detector.")
-    parser.add_argument("--dist_threshold", "-d", type=float, default=0.05,
-        help="Distance threshold used for the F1 metric.")
+    parser.add_argument("--iou_threshold", "-d", type=float, default=0.5,
+        help="IoU threshold.")
+
+    parser.add_argument("--labels", "-l", nargs="+", type=str,
+        help="The labels to benchmark. Empty list or None means all are evaluated.")
 
     args = parser.parse_args()
 
@@ -59,7 +62,6 @@ if __name__ == "__main__":
         names = yolo.class_names
         boxes = BoundingBoxes()
         images = list(image_dir.glob("*.jpg"))
-        
         for image in tqdm(images):
             img = np.array(Image.open(image))
             img_h, img_w = img.shape[:2]
@@ -78,4 +80,7 @@ if __name__ == "__main__":
     else:  # json
         gts = Parser.parse_json_folder(image_dir)
 
-    Evaluator().printF1ByClass(boxes + gts, threshold=args.dist_threshold, method=EvaluationMethod.Distance)
+    boxes += gts
+
+    evaluator = Evaluator()
+    evaluator.printCOCOAPByClass(boxes, args.labels)
