@@ -219,8 +219,8 @@ class Evaluator:
             tot_accuracies.extend(accuracies)
 
         tot_ndet = tot_tp + tot_fp
-        tot_precision = tot_tp / tot_npos
-        tot_recall = tot_tp / tot_ndet
+        tot_precision = tot_tp / tot_ndet
+        tot_recall = tot_tp / tot_npos
         tot_f1 = 2 * tot_precision * tot_recall / (tot_precision + tot_recall)
         tot_accuracies = np.array(tot_accuracies)
         tot_accuracy = tot_accuracies.mean()

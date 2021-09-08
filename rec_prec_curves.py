@@ -39,8 +39,8 @@ def add_info(data, gts):
     f1 = f1_score(prec, rec)
 
     return np.concatenate((data,
-        nbDets[:, np.newaxis],
-        rec[:, np.newaxis], prec[:, np.newaxis], f1[:, np.newaxis]),
+        nbDets[:, None],
+        rec[:, None], prec[:, None], f1[:, None]),
         axis=1)
 
 
@@ -109,7 +109,7 @@ def plot_f1_curve(data):
 
 def main():
     label = "maize"
-    file = f"save/_aggr_grid_search_{label}.csv"
+    file = f"/Volumes/DEEPWATER/backups/backup_experiments_2021-04-29/_aggr_grid_search_{label}.csv"
     data = read_csv_file(file)
     data = add_info(data, 94+169 if label == "bean" else 124+20)
     data_by_dist = split_by_dist(data, 6)
