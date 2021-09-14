@@ -2,27 +2,56 @@
 
 from xml.etree.ElementTree import parse, ParseError
 from pathlib import Path
+import string
 from argparse import ArgumentParser
 from tqdm import tqdm
+import re
 
 CROP_TYPES = {"Adventice", "PlanteInteret"}
+CROP_NAMES = {"mais", "haricot"}
 DOC_TAG = "xml"
+CONSORTIUMS = {"pead", "roseau", "bipbip", "weedelec"}
+INVALID_CHAR = set(string.punctuation)
+ID_RE = re.compile(r"([a-z]+)([0-9]+)")
 
 
-def check(xml_dir, mask_dir, img_dir, mask_ext):
+def check(xml_dir: Path, mask_dir: Path, img_dir: Path, mask_ext: str):
 	logs = []
 	xml_files = list(xml_dir.glob("*.xml"))
+
 	for xml_file in tqdm(xml_files, desc="Validating format", unit="file"):	
 		try:
 			root = parse(xml_file).getroot().find("DL_DOCUMENT")
-
 			src = root.attrib["src"]
 			img_name = Path(src).name
+			img_file = img_dir / img_name
+			doc_tag = root.attrib["docTag"]
+			file_stem = xml_file.stem
+
+			parts = file_stem.split("_")
+			if len(parts) != 2:
+				logs.append(f"Image stem of xml file '{xml_file}' should have two parts separated with an underscore (consortium and identifier)")
+				continue
+			
+			consortium, identifier = parts
+			if consortium not in CONSORTIUMS:
+				logs.append(f"Unknown consortium '{consortium}' for xml file '{xml_file}'")
+				continue
+
+			groups = ID_RE.match(identifier).groups()
+			if len(groups) != 2:
+				logs.append(f"Invalid file identifier for file '{xml_file}'")
+				continue
+
+			crop_name, _ = groups
+			if crop_name not in CROP_NAMES:
+				logs.append(f"Invalid file identifier for file '{xml_file}'")
+				continue
+
 			if img_name != src:
 				logs.append(f"Image source '{src}' in XML file '{xml_file.name}' is not a filename")
 				continue
 
-			img_file = img_dir / img_name
 			if img_file.stem != xml_file.stem:
 				logs.append(f"XML file '{xml_file.name}' does not have the same identifier as source '{img_name}'")
 				continue
@@ -30,7 +59,6 @@ def check(xml_dir, mask_dir, img_dir, mask_ext):
 			if not img_file.is_file():
 				logs.append(f"Image file '{img_name}' for XML file '{xml_file.name}' not found in folder '{img_dir}'")
 
-			doc_tag = root.attrib["docTag"]
 			if doc_tag != DOC_TAG:
 				logs.append(f"Attribute 'docTag' should be '{DOC_TAG}', not '{doc_tag}' for XML file '{xml_file.name}'")
 
@@ -68,8 +96,8 @@ def check(xml_dir, mask_dir, img_dir, mask_ext):
 	if not logs:
 		print("Validation finished without error.")
 	else:
-		print(f"Validation finished with {len(logs)} error(s). Check 'logs.txt' file for details.")
 		Path("logs.txt").write_text("\n".join(logs))
+		print(f"Validation finished with {len(logs)} error(s). Check 'logs.txt' file for details.")
 
 
 def parse_args():
@@ -78,9 +106,14 @@ def parse_args():
 	parser.add_argument("xml_dir", type=Path, help="Directory where XML files are stored.")
 	parser.add_argument("mask_dir", type=Path, help="Directory where binary masks are stored.")
 	parser.add_argument("img_dir", type=Path, help="Directory where images are stored.")
+	
 	parser.add_argument("--mask_ext", type=str, default=".pgm", help="The file extension of mask files.")
 
 	args = parser.parse_args()
+
+	args.xml_dir = args.xml_dir.expanduser().resolve()
+	args.mask_dir = args.mask_dir.expanduser().resolve()
+	args.img_dir = args.img_dir.expanduser().resolve()
 
 	assert args.xml_dir.is_dir(), f"Directory '{args.xml_dir}' does not exist"
 	assert args.mask_dir.is_dir(), f"Directory '{args.mask_dir}' does not exist"

@@ -5,7 +5,7 @@ from my_library import *
 from argparse import ArgumentParser
 from PIL import Image
 import numpy as np
-from tqdm.contrib import tenumerate, tzip
+from tqdm.contrib import tzip
 from tqdm import tqdm
 
 
@@ -50,8 +50,8 @@ def parse_args():
 
     valid_labels = {"maize", "bean", "leek", "stem_maize", "stem_bean", "stem_leek"}
 
-    assert args.label in valid_labels
-    assert args.optflow_path.is_file() or args.compute_flow
+    assert args.label in valid_labels, f"'{args.label}' is not a valid label"
+    assert args.optflow_path.is_file() or args.compute_flow, "either the --compute_flow argument should be provided or the file 'optical_flow.txt' should be present in 'image_dir'"
 
     if args.tracker_dist_threshold is None:
         args.tracker_dist_threshold = (12 if "maize" in args.label else 6) / 100
@@ -59,7 +59,7 @@ def parse_args():
     if args.min_dets is None:
         args.min_dets = 10 if "maize" in args.label else 13
 
-    assert args.annotation_ext in {"xml", "json"}
+    assert args.annotation_ext in {"xml", "json"}, f"'{args.annotation_ext}' is not a valid annotation extension (allowed: 'xml' and 'json')"
 
     return args
 

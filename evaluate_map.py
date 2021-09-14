@@ -25,8 +25,6 @@ def parse_args():
 
     parser.add_argument("--conf_threshold", "-t", type=float, default=0.005,
         help="Confidence threshold for detector.")
-    parser.add_argument("--iou_threshold", "-d", type=float, default=0.5,
-        help="IoU threshold.")
 
     parser.add_argument("--labels", "-l", nargs="+", type=str,
         help="The labels to benchmark. Empty list or None means all are evaluated.")

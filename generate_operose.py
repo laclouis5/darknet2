@@ -52,9 +52,8 @@ def parse_args():
 
     # valid_labels = {"maize", "bean", "leek", "stem_maize", "stem_bean", "stem_leek"}
 
-    assert args.label in {"mais", "haricot"}
-    assert args.optflow_path.is_file() or args.compute_flow
-    assert args.dets_dir.is_dir() or args.net_dir is not None
+    assert args.optflow_path.is_file() or args.compute_flow, "either the --compute_flow argument should be provided or the file 'optical_flow.txt' should be present in 'image_dir'"
+    assert args.dets_dir.is_dir() or args.net_dir is not None, "either the network path should be provided with --net_dir for inference or detections should be provided with --dets_dir"
 
     if args.dist_threshold is None:
         args.dist_threshold = (12 if args.label == "mais" else 6) / 100
@@ -62,7 +61,12 @@ def parse_args():
     if args.min_dets is None:
         args.min_dets = 10 if args.label == "mais" else 13
 
-    args.tracking_label = "stem_maize" if args.label == "mais" else "stem_bean"
+    if args.label == "mais":
+        args.tracking_label = "stem_maize"
+    elif args.label == "haricot":
+        args.tracking_label = "stem_bean"
+    else:
+        raise AssertionError(f"'{args.label}' is not a valid label (either 'mais' or 'haricot')")
 
     assert args.dets_fmt in {"json", "yolo"}
 
@@ -160,7 +164,7 @@ if __name__ == "__main__":
             dets = Parser.parse_json_folder(args.dets_dir, classes=[args.tracking_label])
 
         if len(dets) == 0:
-            print("WARNING: No box was parsed.")
+            raise AssertionError("no annotation found. Maybe due to incorrect 'annotation_ext' parameter or no crop matching 'label' found.")
     else:
         from darknet import YoloDetector
         yolo = YoloDetector.from_dir(args.net_dir)
