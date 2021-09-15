@@ -1,14 +1,12 @@
 # Created by Louis LAC 2019
 
-from collections import namedtuple, defaultdict
-from matplotlib.patches import Ellipse
-import matplotlib.transforms as transforms
+from collections import defaultdict
 
-from skimage import io, data, filters, feature, color, exposure, morphology
+from skimage import filters, morphology
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from mpl_toolkits.mplot3d import Axes3D
+
 try:
     import cv2 as cv
 except:
@@ -22,10 +20,9 @@ from scipy.optimize import linear_sum_assignment
 from scipy import stats
 from collections.abc import MutableSequence
 
-from reg_plane import fit_plane, reg_score, BivariateFunction, Equation
+from reg_plane import fit_plane, BivariateFunction, Equation
 import image_transform as imtf
 
-from tqdm.contrib import tenumerate
 from tqdm import tqdm
 
 from functools import reduce
@@ -148,22 +145,22 @@ class Tracker:
 
         return matches, unmatched_dets, unmatched_tracks
 
-    def _get_all_boxes(self):
+    def _get_all_boxes(self) -> BoundingBoxes:
         return BoundingBoxes([track.barycenter_box() for track in self.tracks])
 
-    def get_filtered_boxes(self):
+    def get_filtered_boxes(self) -> BoundingBoxes:
         return BoundingBoxes([track.barycenter_box() for track in (self.tracks + self.inactive_tracks)
             if len(track) > self.min_points
             and track.mean_confidence() > self.min_confidence
         ])
 
-    def get_mahal_filtered_boxes(self):
+    def get_mahal_filtered_boxes(self) -> BoundingBoxes:
         return BoundingBoxes([track.robust_barycenter() for track in (self.tracks + self.inactive_tracks)
             if len(track) > self.min_points
             and track.mean_confidence() > self.min_confidence
         ])
 
-    def get_filtered_tracks(self):
+    def get_filtered_tracks(self) -> "list[Track]":
         return [track for track in (self.tracks + self.inactive_tracks)
             if len(track) > self.min_points
             and track.mean_confidence() > self.min_confidence]
@@ -176,24 +173,24 @@ class Tracker:
             (x, y, _, _) = track.barycenter_box().getAbsoluteBoundingBox(format=BBFormat.XYC)
             print("Track {}: len: {}, pos: (x: {:.6}, y: {:.6}), conf: {:.6}".format(track.track_id, len(track), x, y, track.mean_confidence()))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "\n".join(f"{track}" for track in (self.tracks + self.inactive_tracks))
 
 
 class Track(MutableSequence):
     track_id = 0
 
-    def __init__(self, history=None):
+    def __init__(self, history: BoundingBoxes = None):
         self.track_id = Track.track_id
         self.epochs_without_update = 0
         self.history = history or BoundingBoxes()
 
         Track.track_id += 1
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.history)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> BoundingBoxes:
         return self.history[index]
 
     def __setitem__(self, index, item):
@@ -205,12 +202,12 @@ class Track(MutableSequence):
     def insert(self, index, item):
         self.history.insert(index, item)
 
-    def mean_confidence(self):
+    def mean_confidence(self) -> float:
         nb_boxes = len(self.history)
         assert  nb_boxes > 0, "Track is empty, cannot compute mean confidence"
         return reduce(lambda acc, box: acc + box.getConfidence(), self.history, 0.0) / nb_boxes
 
-    def barycenter_box(self):
+    def barycenter_box(self) -> BoundingBox:
         nb_boxes = len(self.history)
         assert nb_boxes > 0, "Track is empty, cannot compute barycenter"
         
@@ -274,7 +271,7 @@ class Track(MutableSequence):
         (x, y) = coords[:, 0], coords[:, 1]
         return confidence_ellipse(x, y, n_std)
 
-    def movedBy(self, dx, dy):
+    def movedBy(self, dx, dy) -> "Track":
         return Track(history=[box.movedBy(dx, dy) for box in self.history])
 
     def __repr__(self):
@@ -290,7 +287,6 @@ def associate_tracks_with_image(txt_file, optical_flow, tracker):
     output = defaultdict(list)
 
     tracks = tracker.get_filtered_tracks()
-    bary_boxes = tracker.get_filtered_boxes()
 
     for (i, image) in enumerate(images):
         (dx, dy) = OpticalFlow.traverse_backward(optical_flows[:i+1], 0, 0)

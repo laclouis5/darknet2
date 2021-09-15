@@ -15,13 +15,13 @@ from pathlib import Path
 
 
 class BoundingBoxes(MutableSequence):
-    def __init__(self, bounding_boxes=None):
+    def __init__(self, bounding_boxes: "list[BoundingBox]" = None):
         self._boundingBoxes = bounding_boxes or []
 
     def __len__(self):
         return len(self._boundingBoxes)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> BoundingBox:
         return self._boundingBoxes[index]
 
     def __setitem__(self, index, item):
@@ -82,7 +82,7 @@ class BoundingBoxes(MutableSequence):
         array = [[*box.getAbsoluteBoundingBox(BBFormat.XYX2Y2), box.getConfidence()] for box in detection_boxes]
         return np.array(array)
 
-    def imageSize(self, imageName):
+    def imageSize(self, imageName) -> "tuple[float, float]":
         """
         Returns the size of the specified image.
 

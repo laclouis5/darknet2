@@ -33,7 +33,11 @@ class BoundingBox:
             Enum (XYWH, XYX2Y2 or XYC) indicating the format of the coordinates of the bounding boxes. XYWH: <left> <top> <width> <height>, XYX2Y2: <left> <top> <right> <bottom>, XYC: <xCenter> <yCenter> <width> <height>.
     """
 
-    def __init__(self, imageName, classId, x, y, w, h, typeCoordinates=CoordinatesType.Absolute, imgSize=None, bbType=BBType.GroundTruth, classConfidence=None, format=BBFormat.XYWH):
+    def __init__(self, 
+        imageName: str, classId,
+        x: float, y: float, w: float, h: float, 
+        typeCoordinates=CoordinatesType.Absolute, imgSize=None, bbType=BBType.GroundTruth, classConfidence=None, format=BBFormat.XYWH
+    ):
         self._imageName = imageName
         self._typeCoordinates = typeCoordinates
         if typeCoordinates == CoordinatesType.Relative and imgSize is None:
@@ -119,10 +123,10 @@ class BoundingBox:
             return convertToRelativeValues((self._width_img, self._height_img),
                                            (self._x, self._x2, self._y, self._y2))
 
-    def getImageName(self):
+    def getImageName(self) -> str:
         return self._imageName
 
-    def getConfidence(self):
+    def getConfidence(self) -> float:
         return self._classConfidence
 
     def getFormat(self):
@@ -131,7 +135,7 @@ class BoundingBox:
     def getClassId(self):
         return self._classId
 
-    def getImageSize(self):
+    def getImageSize(self) -> "tuple[int, int]":
         return (self._width_img, self._height_img)
 
     def getCoordinatesType(self):
@@ -143,7 +147,7 @@ class BoundingBox:
     def setImageName(self, new_name):
         self._imageName = new_name
 
-    def getArea(self):
+    def getArea(self) -> float:
         area = (self._w + 1) * (self._h + 1)
         return area
 
@@ -251,7 +255,7 @@ class BoundingBox:
         box.clip(size)
         return box
 
-    def centerIsIn(self, rect=None, as_percent=False):
+    def centerIsIn(self, rect=None, as_percent: bool = False):
         """
         Returns True if the BoundingBox center is in a given rectangle. If no rectangle is provided, the image size stored in the BoundingBox is used, if there is one.
 
@@ -275,7 +279,7 @@ class BoundingBox:
 
         return x > rect[0] and x < rect[2] and y > rect[1] and y < rect[3]
 
-    def iou(self, other):
+    def iou(self, other) -> float:
         """
         Returns the Intersection over Union of two boxes.
 

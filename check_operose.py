@@ -36,9 +36,8 @@ def check(xml_dir: Path, mask_dir: Path, img_dir: Path, mask_ext: str):
 			consortium, identifier = parts
 			if consortium not in CONSORTIUMS:
 				logs.append(f"Unknown consortium '{consortium}' for xml file '{xml_file}'")
-				continue
 
-			groups = ID_RE.match(identifier).groups()
+			groups = ID_RE.fullmatch(identifier).groups()
 			if len(groups) != 2:
 				logs.append(f"Invalid file identifier for file '{xml_file}'")
 				continue
@@ -46,15 +45,12 @@ def check(xml_dir: Path, mask_dir: Path, img_dir: Path, mask_ext: str):
 			crop_name, _ = groups
 			if crop_name not in CROP_NAMES:
 				logs.append(f"Invalid file identifier for file '{xml_file}'")
-				continue
 
 			if img_name != src:
 				logs.append(f"Image source '{src}' in XML file '{xml_file.name}' is not a filename")
-				continue
 
 			if img_file.stem != xml_file.stem:
 				logs.append(f"XML file '{xml_file.name}' does not have the same identifier as source '{img_name}'")
-				continue
 
 			if not img_file.is_file():
 				logs.append(f"Image file '{img_name}' for XML file '{xml_file.name}' not found in folder '{img_dir}'")
