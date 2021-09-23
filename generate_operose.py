@@ -1,11 +1,12 @@
-from concurrent.futures.thread import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import shutil
 from pathlib import Path
+from threading import Thread
 from BoxLibrary import *
 from my_library import *
 from my_xml_toolbox import *
 from argparse import ArgumentParser
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 from tqdm.contrib import tenumerate, tzip
 from tqdm.contrib.concurrent import process_map, thread_map
@@ -76,6 +77,7 @@ def parse_args():
 
 
 def associate(txt_file, flows, boxes):
+    # TODO: Improve speed, currently ~O(n^2) (images x all_boxes)
     images = read_image_txt_file(txt_file)
     (img_width, img_height) = image_size(images[0])
     out_boxes = BoundingBoxes()
@@ -115,59 +117,7 @@ def track(boxes, image_list, flows, conf_thresh, min_points, dist_thresh, crop_p
     return dets
 
 
-def inner(element):
-        ((image, image_boxes), save_dir, label_name) = element
-
-        image_name = Path(image).name
-        new_image_name = f"bipbip_{label_name}{image_name[3:]}"
-        shutil.copy(image, save_dir / new_image_name)
-        (img_h, img_w) = cv.imread(image).shape[:2]
-        radius = int(5/100 * min(img_w, img_h) / 2)
-
-        xml_tree = XMLTree(new_image_name, width=img_w, height=img_h)
-
-        def _inner(box):
-            xml_tree.add_mask(label_name)
-
-            (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
-            rect = [int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius]
-
-            out_name = f"{Path(new_image_name).stem}_{xml_tree.plant_count-1}.png"
-            mask_path = os.path.join(save_dir, out_name)
-            
-            # stem_mask = np.zeros((img_h, img_w), dtype=np.uint8)
-            # stem_mask[int(y-radius):int(y+radius), int(x-radius):int(x+radius)] = 255
-            # cv2.imwrite(mask_path, stem_mask)
-
-            stem_mask = Image.new(mode="1", size=(img_w, img_h))
-            stem_mask.paste(Image.new(mode="1", size=(radius*2, radius*2), color=1), rect)
-            stem_mask.save(mask_path)
-
-            xml_tree.save(save_dir)
-
-        ThreadPoolExecutor().map(_inner, image_boxes)
-
-        # for box in image_boxes:
-        #     xml_tree.add_mask(label_name)
-
-        #     (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
-        #     rect = [int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius]
-
-        #     out_name = f"{Path(new_image_name).stem}_{xml_tree.plant_count-1}.png"
-        #     mask_path = os.path.join(save_dir, out_name)
-            
-        #     # stem_mask = np.zeros((img_h, img_w), dtype=np.uint8)
-        #     # stem_mask[int(y-radius):int(y+radius), int(x-radius):int(x+radius)] = 255
-        #     # cv2.imwrite(mask_path, stem_mask)
-
-        #     stem_mask = Image.new(mode="1", size=(img_w, img_h))
-        #     stem_mask.paste(Image.new(mode="1", size=(radius*2, radius*2), color=1), rect)
-        #     stem_mask.save(mask_path)
-
-        #     xml_tree.save(save_dir)
-
-
-def operose(boxes, save_dir, label_name):
+def operose(boxes, save_dir: Path, label_name):
     create_dir(save_dir)
     boxes_by_name = boxes.getBoxesBy(lambda box: box.getImageName())
 
@@ -177,7 +127,37 @@ def operose(boxes, save_dir, label_name):
         [label_name]*len(boxes_by_name)
     ))
 
-    thread_map(inner, elements, desc="Operose", unit="image")
+    executor = ThreadPoolExecutor()
+
+    def _save(element):
+        ((image, image_boxes), save_dir, label_name) = element
+        image_name = Path(image).name
+        new_image_name = Path(f"bipbip_{label_name}{image_name[3:]}")
+        shutil.copy(image, save_dir / new_image_name)
+        img_w, img_h = Image.open(image).size
+        radius = int(5/100 * min(img_w, img_h) / 2)
+
+        xml_tree = XMLTree(new_image_name, width=img_w, height=img_h)
+        for _ in range(len(image_boxes)):
+            xml_tree.add_mask(label_name)
+        xml_tree.save(save_dir)
+
+        def _save_mask(element):
+            box_id, box = element
+            (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
+            rect = (int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius)
+
+            mask_path = save_dir / f"{new_image_name.stem}_{box_id}.png"
+            
+            stem_mask = Image.new(mode="1", size=(img_w, img_h))
+            draw = ImageDraw.Draw(stem_mask)
+            draw.rectangle(rect, fill=1)
+            stem_mask.save(mask_path)
+
+        executor.map(_save_mask, enumerate(image_boxes))
+
+    thread_map(_save, elements, desc="Operose", unit="image")
+    executor.shutdown()
 
 
 if __name__ == "__main__":
