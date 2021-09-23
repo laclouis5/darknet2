@@ -1,3 +1,4 @@
+from tqdm.contrib.concurrent import thread_map
 from .BoundingBox import BoundingBox
 from .utils import *
 
@@ -228,7 +229,9 @@ class BoundingBoxes(MutableSequence):
             create_dir(save_dir)
 
         images_by_name = self.getBoxesBy(lambda box: box.getImageName())
-        for (image_name, boxes) in tqdm(images_by_name.items(), desc="Saving"):
+
+        def inner(element):
+            image_name, boxes = element
             description = "\n".join(box.description(type_coordinates, format, save_conf=save_conf) for box in boxes)
 
             d = save_dir or os.path.split(image_name)[0]
@@ -237,6 +240,18 @@ class BoundingBoxes(MutableSequence):
 
             with open(fileName, "w") as f:
                 f.write(description)
+
+        thread_map(inner, images_by_name.items(), desc="Saving")
+
+        # for image_name, boxes in tqdm(images_by_name.items(), desc="Saving"):
+        #     description = "\n".join(box.description(type_coordinates, format, save_conf=save_conf) for box in boxes)
+
+        #     d = save_dir or os.path.split(image_name)[0]
+        #     fileName = os.path.splitext(image_name)[0] + ".txt"
+        #     fileName = os.path.join(d, os.path.basename(fileName))
+
+        #     with open(fileName, "w") as f:
+        #         f.write(description)
 
     def save_xml(self, save_dir=None):
         boxes_by_name = dictGrouping(self, lambda box: box.getImageName())

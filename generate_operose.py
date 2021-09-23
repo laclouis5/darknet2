@@ -1,3 +1,4 @@
+from concurrent.futures.thread import ThreadPoolExecutor
 import shutil
 from pathlib import Path
 from BoxLibrary import *
@@ -6,10 +7,11 @@ from my_xml_toolbox import *
 from argparse import ArgumentParser
 from PIL import Image
 import numpy as np
-from tqdm.contrib import tzip
-from tqdm.contrib.concurrent import process_map
+from tqdm.contrib import tenumerate, tzip
+from tqdm.contrib.concurrent import process_map, thread_map
 from tqdm import tqdm
 import shutil
+import cv2
 
 
 def parse_args():
@@ -78,7 +80,7 @@ def associate(txt_file, flows, boxes):
     (img_width, img_height) = image_size(images[0])
     out_boxes = BoundingBoxes()
 
-    for i, image in enumerate(images):
+    for i, image in tenumerate(images, desc="Association"):
         (dx, dy) = OpticalFlow.traverse_backward(flows[:i+1], 0, 0)  # +1 !!!
         xmin = dx
         ymin = dy
@@ -124,30 +126,58 @@ def inner(element):
 
         xml_tree = XMLTree(new_image_name, width=img_w, height=img_h)
 
-        for box in image_boxes:
+        def _inner(box):
             xml_tree.add_mask(label_name)
 
             (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
             rect = [int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius]
 
             out_name = f"{Path(new_image_name).stem}_{xml_tree.plant_count-1}.png"
+            mask_path = os.path.join(save_dir, out_name)
+            
+            # stem_mask = np.zeros((img_h, img_w), dtype=np.uint8)
+            # stem_mask[int(y-radius):int(y+radius), int(x-radius):int(x+radius)] = 255
+            # cv2.imwrite(mask_path, stem_mask)
 
             stem_mask = Image.new(mode="1", size=(img_w, img_h))
             stem_mask.paste(Image.new(mode="1", size=(radius*2, radius*2), color=1), rect)
-            stem_mask.save(os.path.join(save_dir, out_name))
+            stem_mask.save(mask_path)
 
             xml_tree.save(save_dir)
+
+        ThreadPoolExecutor().map(_inner, image_boxes)
+
+        # for box in image_boxes:
+        #     xml_tree.add_mask(label_name)
+
+        #     (x, y, _, _) = box.getAbsoluteBoundingBox(BBFormat.XYC)
+        #     rect = [int(x) - radius, int(y) - radius, int(x) + radius, int(y) + radius]
+
+        #     out_name = f"{Path(new_image_name).stem}_{xml_tree.plant_count-1}.png"
+        #     mask_path = os.path.join(save_dir, out_name)
+            
+        #     # stem_mask = np.zeros((img_h, img_w), dtype=np.uint8)
+        #     # stem_mask[int(y-radius):int(y+radius), int(x-radius):int(x+radius)] = 255
+        #     # cv2.imwrite(mask_path, stem_mask)
+
+        #     stem_mask = Image.new(mode="1", size=(img_w, img_h))
+        #     stem_mask.paste(Image.new(mode="1", size=(radius*2, radius*2), color=1), rect)
+        #     stem_mask.save(mask_path)
+
+        #     xml_tree.save(save_dir)
 
 
 def operose(boxes, save_dir, label_name):
     create_dir(save_dir)
     boxes_by_name = boxes.getBoxesBy(lambda box: box.getImageName())
+
     elements = list(zip(
         boxes_by_name.items(), 
         [save_dir]*len(boxes_by_name), 
         [label_name]*len(boxes_by_name)
     ))
-    process_map(inner, elements, max_workers=4, desc="Operose", unit="image")
+
+    thread_map(inner, elements, desc="Operose", unit="image")
 
 
 if __name__ == "__main__":
