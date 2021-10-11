@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import sys
 
 import matplotlib.pyplot as plt
@@ -193,13 +194,16 @@ class Evaluator:
 
         return (recall, precision, f1)
 
-    def printF1ByClass(self, boxes, threshold=25/100, method=EvaluationMethod.Distance):
+    def printF1ByClass(self, boxes, threshold=25/100, method=EvaluationMethod.Distance, save_path: Path = None):
         metrics = self.GetPascalVOCMetrics(boxes, threshold, method)
 
         description = "Label     |npos|ndet|rec    |prec   |f1     |acc    |acc_err\n"
         description += "------------------------------------------------------------\n"
         tot_tp, tot_fp, tot_npos = 0, 0, 0
         tot_accuracies = []
+
+        if save_path is not None:
+            csv_lines = [["label", "recall", "precision", "f1", "acc"]]
 
         for label, metric in metrics.items():
             tp, fp = metric["total TP"], metric["total FP"]
@@ -209,26 +213,35 @@ class Evaluator:
             precision = tp / ndet if ndet != 0 else 1 if npos == 0 else 0
             recall = tp / npos if npos != 0 else 1 if ndet == 0 else 0
             f1 = 2 * recall * precision / (recall + precision) if (recall + precision) != 0 else 0
-            accuracy = accuracies.mean()
-            std_err = np.std(accuracies) / np.sqrt(len(accuracies))
+            accuracy = accuracies.mean() if len(accuracies) != 0 else float("nan")
+            std_err = np.std(accuracies) / np.sqrt(len(accuracies)) if len(accuracies) != 0 else float("nan")
             description += f"{label:10}|{npos:4}|{ndet:4}|{recall:7.2%}|{precision:7.2%}|{f1:7.2%}|{accuracy:7.2%}|{std_err:7.2%}\n"
+
+            if save_path is not None:
+                csv_lines.append([str(label), str(recall), str(precision), str(f1), str(accuracy)])
 
             tot_tp += tp
             tot_fp += fp
             tot_npos += npos
             tot_accuracies.extend(accuracies)
 
+        # This is wrong, should be averaged by category
         tot_ndet = tot_tp + tot_fp
-        tot_precision = tot_tp / tot_ndet
-        tot_recall = tot_tp / tot_npos
-        tot_f1 = 2 * tot_precision * tot_recall / (tot_precision + tot_recall)
+        tot_precision = tot_tp / tot_ndet if tot_ndet != 0 else 1 if tot_npos == 0 else 0
+        tot_recall = tot_tp / tot_npos if tot_npos != 0 else 1 if tot_ndet == 0 else 0
+        tot_f1 = 2 * tot_precision * tot_recall / (tot_precision + tot_recall) if (tot_recall + tot_precision) != 0 else 0
         tot_accuracies = np.array(tot_accuracies)
-        tot_accuracy = tot_accuracies.mean()
-        tot_std_err = np.std(tot_accuracies) / np.sqrt(len(tot_accuracies))
+        tot_accuracy = tot_accuracies.mean() if len(tot_accuracies) != 0 else float("nan")
+        tot_std_err = np.std(tot_accuracies) / np.sqrt(len(tot_accuracies)) if len(tot_accuracies) != 0 else float("nan")
+
         description += "------------------------------------------------------------\n"
         description += f"{'total':10}|{tot_npos:4}|{tot_ndet:4}|{tot_recall:7.2%}|{tot_precision:7.2%}|{tot_f1:7.2%}|{tot_accuracy:7.2%}|{tot_std_err:7.2%}"
 
         print(description)
+        
+        if save_path is not None:
+            save_path.write_text("\n".join(
+                ",".join(line) for line in csv_lines))
 
     @staticmethod
     def CalculateAveragePrecision(rec, prec):

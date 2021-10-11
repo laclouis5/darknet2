@@ -28,6 +28,9 @@ def parse_args():
     parser.add_argument("--dist_threshold", "-d", type=float, default=0.05,
         help="Distance threshold used for the F1 metric.")
 
+    parser.add_argument("--save_csv", dest="csv_path", type=Path, default=None,
+        help="Store the evaluation as csv.")
+
     args = parser.parse_args()
 
     assert args.net_dir is not None or args.dets_dir is not None
@@ -78,4 +81,6 @@ if __name__ == "__main__":
     else:  # json
         gts = Parser.parse_json_folder(image_dir)
 
-    Evaluator().printF1ByClass(boxes + gts, threshold=args.dist_threshold, method=EvaluationMethod.Distance)
+    Evaluator().printF1ByClass(boxes + gts, 
+        threshold=args.dist_threshold, 
+        method=EvaluationMethod.Distance, save_path=args.csv_path)
