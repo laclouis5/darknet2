@@ -348,6 +348,7 @@ class YoloDetector:
         Returns:
          - detections (list): Tuples of (<label>, <conf>, (<x>, <y>, <w>, <h>)) where the coordinates are expressed in the absolute referential of the input image.
         """
+        assert 0.0 <= conf_threshold <= 1.0
         width, height = self.width, self.height
         class_names = self.class_names
         network = self.network
@@ -364,7 +365,7 @@ class YoloDetector:
         num = pnum[0]
         do_nms_sort(detections, num, len(class_names), 0.45)
         predictions = remove_negatives(detections, class_names, num)
-        predictions.sort(key=lambda x: x[1])
+        predictions.sort(key=lambda x: x[1], reverse=True)
 
         r_x, r_y = img_w / width, img_h / height
         predictions = [(l, c, (x1 * r_x, y1 * r_y, x2 * r_x, y2 * r_y)) 
